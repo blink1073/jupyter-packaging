@@ -14,6 +14,9 @@ factory = "foo.main"
 
 [tool.jupyter-packaging.build-args]
 fizz = "buzz"
+
+[tool.jupyter-packaging.data-files]
+specs = [["jupyter-packaging-test/level1", "share", "**/[a-z]est.txt"]]
 """
 
 FOO_CONTENT = r"""

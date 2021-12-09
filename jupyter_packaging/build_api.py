@@ -15,26 +15,30 @@ from setuptools.build_meta import (
 )
 import tomlkit
 
-from jupyter_packaging.setupbase import __version__
+from jupyter_packaging.setupbase import __version__, get_data_files
 
 
 def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     """Build a wheel with an optional pre-build step."""
+    _handle_data_files_start()
     builder = _get_build_func()
     if builder:
         builder()
     val = orig_build_wheel(wheel_directory, config_settings=config_settings, metadata_directory=metadata_directory)
     _ensure_targets()
+    _handle_data_files_finish()
     return val
 
 
 def build_sdist(sdist_directory, config_settings=None):
     """Build an sdist with an optional pre-build step."""
+    _handle_data_files_start()
     builder = _get_build_func()
     if builder:
         builder()
     val = orig_build_sdist(sdist_directory, config_settings=config_settings)
     _ensure_targets()
+    _handle_data_files_finish()
     return val
 
 
@@ -44,7 +48,7 @@ def _handle_deprecated_metadata():
     pass
 
 
-def _get_build_func():
+def _get_config():
     pyproject = Path('pyproject.toml')
     if not pyproject.exists():
         return
@@ -55,7 +59,38 @@ def _get_build_func():
         return
     if 'builder' not in data['tool']['jupyter-packaging']:
         return
-    section = data['tool']['jupyter-packaging']
+    return data['tool']['jupyter-packaging']
+
+
+def _handle_data_files_start():
+    # Check for data_files config in pyproject.toml
+    section = _get_config()
+    if not section:
+        return
+    if not section['data-files']:
+        return
+    # TODO: allow for an excludes in the same way that we handle the builder factory
+    data_files = get_data_files(section['data-files']['specs'])
+    import pdb; pdb.set_trace()
+    pass
+    # Inject data_files config into setup.cfg
+
+
+def _handle_data_files_finish():
+    # Check for data_files config in pyproject.toml
+    section = _get_config()
+    if not section:
+        return
+    if not section.get('data-files', {}).get('specs'):
+        return
+    # Remove data_files config from setup.cfg
+    pass
+
+
+def _get_build_func():
+    section = _get_config()
+    if not section:
+        return
 
     # Handle deprecated "func" builder kwarg
     if 'func' in section['builder']:
@@ -90,15 +125,9 @@ def _get_build_func():
 
 
 def _ensure_targets():
-    pyproject = Path('pyproject.toml')
-    if not pyproject.exists():
+    section = _get_config()
+    if not section:
         return
-    data = tomlkit.loads(pyproject.read_text(encoding='utf-8'))
-    if 'tool' not in data:
-        return
-    if 'jupyter-packaging' not in data['tool']:
-        return
-    section = data['tool']['jupyter-packaging']
     if 'options' in section and 'ensured-targets' in section['options']:
         targets = section['options']['ensured-targets']
         missing = [t for t in targets if not os.path.exists(t)]
